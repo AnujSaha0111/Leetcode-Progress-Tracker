@@ -127,10 +127,13 @@ async function fetchLeetCodeData(query, variables) {
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'LeetCode-Progress-Tracker'
-      }
+      },
+      timeout: 30000, // 30 second timeout
+      maxRedirects: 5
     });
     return response.data;
   } catch (error) {
+    console.error('LeetCode API error details:', error.response?.status, error.response?.data);
     throw new Error(`LeetCode API error: ${error.message}`);
   }
 }
@@ -138,6 +141,7 @@ async function fetchLeetCodeData(query, variables) {
 app.get('/api/user/:username', async (req, res) => {
   try {
     const { username } = req.params;
+    console.log(`Fetching data for user: ${username}`);
     
     const currentYear = new Date().getFullYear();
     
@@ -314,6 +318,21 @@ app.get('/api/user/:username', async (req, res) => {
     res.json(responseData);
   } catch (error) {
     console.error('Error fetching user data:', error);
+    
+    // Handle specific LeetCode API errors
+    if (error.message.includes('LeetCode API error')) {
+      if (error.message.includes('504')) {
+        return res.status(504).json({ 
+          error: 'LeetCode API timeout. Please try again.',
+          message: 'The request to LeetCode took too long. This might be due to high server load.'
+        });
+      }
+      return res.status(502).json({ 
+        error: 'LeetCode API error', 
+        message: 'Unable to reach LeetCode servers. Please try again later.'
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to fetch user data', 
       message: error.message 
